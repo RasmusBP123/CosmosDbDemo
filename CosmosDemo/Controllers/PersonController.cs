@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Cosmos;
 
@@ -10,7 +10,7 @@ namespace CosmosDemo.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ToDoController : ControllerBase
+    public class PersonController : ControllerBase
     {
         [HttpGet()]
         public async Task<IActionResult> GetAllPersonsAsync()
@@ -18,26 +18,26 @@ namespace CosmosDemo.Controllers
             var container = Shared.Client.GetContainer(Shared.DbName, Shared.ContainerName);
             var sql = "SELECT * FROM c";
 
-            var items = container.GetItemQueryIterator<dynamic>(sql);
+            var items = container.GetItemQueryIterator<Person>(sql);
             var results = await items.ReadNextAsync();
 
-            var persons = new List<Person>();
-
-            foreach (var result in results)
-            {
-                persons.Add(new Person
-                {
-                    Id = result.id,
-                    Name = result.name,
-                    Status = result.status
-                });
-            }
-
-            return Ok(persons);
+            return Ok(results);
         }
 
-        [HttpGet("container")]
-        public async Task<IActionResult> CreateNewItem()
+        [HttpGet("{key}/{value}")]
+        public async Task<IActionResult> GetPersonByIdAsync(string key, string value)
+        {
+            var container = Shared.Client.GetContainer(Shared.DbName, Shared.ContainerName);
+            var sql = $"SELECT * FROM c WHERE c.{key} = '{value}'";
+
+            var item = container.GetItemQueryIterator<Person>(sql);
+            var results = await item.ReadNextAsync();
+
+            return Ok(results);
+        }
+
+        [HttpGet("create")]
+        public async Task<IActionResult> CreateNewPersons()
         {
             var container = Shared.Client.GetContainer(Shared.DbName, Shared.ContainerName);
 
@@ -58,13 +58,13 @@ namespace CosmosDemo.Controllers
                 {
                     new Pet
                     {
-                        Name = "FluffyBalllz",
+                        Name = "Mao Mjavkat",
                         Age = 21,
                         IsCute = true,
                     },
                     new Pet
                     {
-                        Name = "Snowflake",
+                        Name = "Princess Pickles",
                         Age = 5,
                         IsCute = false,
                     }
@@ -73,6 +73,15 @@ namespace CosmosDemo.Controllers
 
             await container.CreateItemAsync(person, new PartitionKey("in a commited relationship"));
             var result = await container.CreateItemAsync(myNewPerson, new PartitionKey("single and ready to mingle"));
+
+            return Ok(result);
+        }
+
+        [HttpGet("delete")]
+        public async Task<IActionResult> DeleteItem()
+        {
+            var container = Shared.Client.GetContainer(Shared.DbName, Shared.ContainerName);
+            var result = await container.DeleteItemAsync<dynamic>("a209863a-bd1e-4f9c-8120-bef4580402a9", new PartitionKey("single and ready to mingle"), null, CancellationToken.None);
             return Ok(result);
         }
     }
